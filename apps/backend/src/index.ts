@@ -80,9 +80,12 @@ app.use(
     cookie: {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      domain: env.NODE_ENV === 'production' ? env.COOKIE_DOMAIN : undefined,
+      domain:
+        env.NODE_ENV === 'production' && env.COOKIE_DOMAIN && env.COOKIE_DOMAIN !== 'localhost'
+          ? env.COOKIE_DOMAIN
+          : undefined,
     },
   }),
 );

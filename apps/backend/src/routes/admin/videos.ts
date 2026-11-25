@@ -13,6 +13,11 @@ import {
   deleteR2Prefix,
 } from '../../services/r2';
 import { checkFfmpegAvailable, probeVideo, transcodeToHls } from '../../services/ffmpeg';
+import {
+  isVdoCipherConfigured,
+  uploadVideoToVdoCipher,
+  getVdoCipherVideoInfo,
+} from '../../services/vdocipher';
 
 const router = Router();
 
@@ -50,6 +55,7 @@ router.get('/system-check', async (_req, res) => {
     data: {
       ...ffmpegStatus,
       r2Configured: isR2Configured(),
+      vdoCipherConfigured: isVdoCipherConfigured(),
       freeAllowanceGb: 10,
     },
   });
@@ -98,6 +104,8 @@ router.get('/storage', async (_req, res) => {
         lessonId: a.lessonId,
         lessonTitle: a.lesson.title,
         courseTitle: a.lesson.section.course.title,
+        provider: a.provider,
+        vdoCipherVideoId: a.vdoCipherVideoId,
         status: a.status,
         resolution: a.resolution,
         durationSeconds: a.durationSeconds,
@@ -111,10 +119,40 @@ router.get('/storage', async (_req, res) => {
 
 // GET /api/admin/videos/lessons/:lessonId/status
 router.get('/lessons/:lessonId/status', async (req, res) => {
-  const asset = await prisma.videoAsset.findUnique({
+  let asset = await prisma.videoAsset.findUnique({
     where: { lessonId: req.params.lessonId },
   });
   if (!asset) throw new NotFoundError('Video asset');
+
+  // Sync VdoCipher processing status on-demand
+  if (
+    asset.provider === 'VIDEOCIPHER' &&
+    asset.status === 'PROCESSING' &&
+    asset.vdoCipherVideoId &&
+    isVdoCipherConfigured()
+  ) {
+    try {
+      const info = await getVdoCipherVideoInfo(asset.vdoCipherVideoId);
+      if (info.status.toLowerCase() === 'ready') {
+        asset = await prisma.videoAsset.update({
+          where: { id: asset.id },
+          data: {
+            status: 'READY',
+            durationSeconds: info.lengthSeconds || asset.durationSeconds,
+            processedAt: new Date(),
+          },
+        });
+        if (info.lengthSeconds > 0) {
+          await prisma.lesson.update({
+            where: { id: asset.lessonId },
+            data: { durationSeconds: info.lengthSeconds },
+          });
+        }
+      }
+    } catch {
+      // Ignore transient status sync errors
+    }
+  }
 
   res.json({
     success: true,
@@ -123,6 +161,75 @@ router.get('/lessons/:lessonId/status', async (req, res) => {
       fileSizeBytes: asset.fileSizeBytes ? Number(asset.fileSizeBytes) : 0,
     },
   });
+});
+
+// POST /api/admin/videos/lessons/:lessonId/upload-vdocipher
+router.post('/lessons/:lessonId/upload-vdocipher', upload.single('video'), async (req, res) => {
+  const adminId = getCurrentUserId(req);
+  const lessonId = String(req.params.lessonId);
+
+  if (!req.file) {
+    throw new AppError('No MP4 video file uploaded (field name: video)', 400);
+  }
+  const uploadedPath = req.file.path;
+  const fileSize = req.file.size;
+
+  const lesson = await prisma.lesson.findUnique({ where: { id: lessonId } });
+  if (!lesson) {
+    await fs.promises.unlink(uploadedPath).catch(() => {});
+    throw new NotFoundError('Lesson');
+  }
+
+  if (!isVdoCipherConfigured()) {
+    await fs.promises.unlink(uploadedPath).catch(() => {});
+    throw new AppError(
+      'VdoCipher is not configured. Add VIDEOCIPHER_API_SECRET to apps/backend/.env.',
+      503,
+      'VDOCIPHER_NOT_CONFIGURED',
+    );
+  }
+
+  try {
+    const { videoId } = await uploadVideoToVdoCipher(uploadedPath, lesson.title);
+
+    await prisma.$transaction([
+      prisma.videoAsset.upsert({
+        where: { lessonId },
+        create: {
+          lessonId,
+          provider: 'VIDEOCIPHER',
+          vdoCipherVideoId: videoId,
+          fileSizeBytes: BigInt(fileSize),
+          status: 'PROCESSING',
+          errorMessage: null,
+        },
+        update: {
+          provider: 'VIDEOCIPHER',
+          vdoCipherVideoId: videoId,
+          fileSizeBytes: BigInt(fileSize),
+          status: 'PROCESSING',
+          errorMessage: null,
+        },
+      }),
+      prisma.adminAuditLog.create({
+        data: {
+          adminId,
+          action: 'VIDEO_UPLOADED',
+          entityType: 'Lesson',
+          entityId: lessonId,
+          description: `Uploaded lesson "${lesson.title}" to VdoCipher (ID: ${videoId})`,
+        },
+      }),
+    ]);
+
+    res.status(202).json({
+      success: true,
+      data: { lessonId, provider: 'VIDEOCIPHER', vdoCipherVideoId: videoId, status: 'PROCESSING' },
+      message: 'Uploaded to VdoCipher. DRM transcoding is in progress.',
+    });
+  } finally {
+    await fs.promises.unlink(uploadedPath).catch(() => {});
+  }
 });
 
 // POST /api/admin/videos/lessons/:lessonId/upload

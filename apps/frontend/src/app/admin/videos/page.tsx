@@ -13,6 +13,7 @@ interface SystemCheck {
   ffprobe: boolean;
   version?: string;
   r2Configured: boolean;
+  vdoCipherConfigured: boolean;
   freeAllowanceGb: number;
 }
 
@@ -62,6 +63,7 @@ export default function AdminVideosPage() {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [courseDetail, setCourseDetail] = useState<CourseDetail | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState('');
+  const [provider, setProvider] = useState<'VIDEOCIPHER' | 'R2_HLS'>('R2_HLS');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -120,10 +122,12 @@ export default function AdminVideosPage() {
       const formData = new FormData();
       formData.append('video', file);
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/videos/lessons/${selectedLessonId}/upload`,
-        { method: 'POST', credentials: 'include', body: formData },
-      );
+      const endpoint =
+        provider === 'VIDEOCIPHER'
+          ? `${process.env.NEXT_PUBLIC_API_URL}/admin/videos/lessons/${selectedLessonId}/upload-vdocipher`
+          : `${process.env.NEXT_PUBLIC_API_URL}/admin/videos/lessons/${selectedLessonId}/upload`;
+
+      const res = await fetch(endpoint, { method: 'POST', credentials: 'include', body: formData });
       const json = await res.json();
       if (!res.ok || !json.success) {
         setError(json.message || 'Upload failed');
@@ -177,7 +181,7 @@ export default function AdminVideosPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center justify-between py-2 border-b border-gray-50">
                     <span className="text-gray-600">Cloudflare R2 (private bucket)</span>
                     {sys?.r2Configured ? (
                       <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-xs">
@@ -186,6 +190,18 @@ export default function AdminVideosPage() {
                     ) : (
                       <span className="inline-flex items-center gap-1 text-amber-700 font-semibold text-xs">
                         <AlertTriangle className="w-4 h-4" /> Set R2 keys in .env
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-gray-600">VdoCipher DRM (5 GB free trial)</span>
+                    {sys?.vdoCipherConfigured ? (
+                      <span className="inline-flex items-center gap-1 text-green-700 font-semibold text-xs">
+                        <CheckCircle className="w-4 h-4" /> Configured
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-amber-700 font-semibold text-xs">
+                        <AlertTriangle className="w-4 h-4" /> Set VIDEOCIPHER_API_SECRET
                       </span>
                     )}
                   </div>
@@ -226,9 +242,20 @@ export default function AdminVideosPage() {
             {/* Upload MP4 */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Upload className="w-5 h-5 text-brand-600" /> Upload & Transcode Lesson Video (MP4 → HLS)
+                <Upload className="w-5 h-5 text-brand-600" /> Upload Lesson Video
               </h2>
-              <form onSubmit={handleUpload} className="grid md:grid-cols-3 gap-4 items-end">
+              <form onSubmit={handleUpload} className="grid md:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Provider</label>
+                  <select
+                    value={provider}
+                    onChange={(e) => setProvider(e.target.value as 'VIDEOCIPHER' | 'R2_HLS')}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                  >
+                    <option value="VIDEOCIPHER">VdoCipher (DRM · 5 GB Free)</option>
+                    <option value="R2_HLS">Cloudflare R2 + FFmpeg</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
                   <select
@@ -267,13 +294,13 @@ export default function AdminVideosPage() {
                     className="w-full text-xs text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-700 file:font-semibold"
                   />
                 </div>
-                <div className="md:col-span-3">
+                <div className="md:col-span-4">
                   <button
                     type="submit"
                     disabled={uploading || !selectedLessonId || !file}
-                    className="inline-flex items-center gap-2 bg-brand-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:bg-brand-700 disabled:opacity-50 text-sm"
+                    className="inline-flex items-center gap-2 bg-zinc-950 text-white font-medium px-5 py-2.5 rounded-md hover:bg-zinc-800 disabled:opacity-50 text-sm"
                   >
-                    {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</> : 'Upload & Process HLS'}
+                    {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</> : 'Upload Video'}
                   </button>
                 </div>
               </form>

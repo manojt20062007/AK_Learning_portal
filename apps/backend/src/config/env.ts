@@ -21,6 +21,8 @@ const EnvSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET_NAME: z.string().optional(),
   R2_PUBLIC_DOMAIN: z.string().optional(),
+  // VdoCipher
+  VIDEOCIPHER_API_SECRET: z.string().optional(),
   // Email
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().default(587),

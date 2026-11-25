@@ -263,10 +263,12 @@ model Lesson {
 }
 
 model VideoAsset {
-  id              String   @id @default(uuid())
-  lessonId        String   @unique
-  originalKey     String?  // R2 key for original MP4
-  hlsManifestKey  String?  // R2 key for master .m3u8
+  id               String   @id @default(uuid())
+  lessonId         String   @unique
+  provider         String   @default("R2_HLS") // R2_HLS | VIDEOCIPHER
+  vdoCipherVideoId String?
+  originalKey      String?  // R2 key for original MP4
+  hlsManifestKey   String?  // R2 key for master .m3u8
   status          String   @default("PENDING") // PENDING | PROCESSING | READY | ERROR
   durationSeconds Int?
   fileSizeBytes   BigInt?
@@ -574,4 +576,12 @@ model PlatformSettings {
   updatedAt   DateTime @updatedAt
 
   @@index([key])
+}
+
+model user_sessions_store {
+  sid    String   @id(map: "session_pkey") @db.VarChar
+  sess   Json     @db.Json
+  expire DateTime @db.Timestamp(6)
+
+  @@index([expire], map: "IDX_session_expire")
 }

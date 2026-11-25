@@ -3,6 +3,7 @@ import { prisma } from '../config/database';
 import { requireAuth, getCurrentUserId } from '../middleware/auth';
 import { AppError, ForbiddenError, NotFoundError } from '../middleware/errorHandler';
 import { getR2ObjectText, getSignedR2Url } from '../services/r2';
+import { generateVdoCipherOtp, getVdoCipherVideoInfo } from '../services/vdocipher';
 
 const router = Router();
 
@@ -27,7 +28,38 @@ async function authorizeLessonPlayback(userId: string, lessonId: string) {
   });
   if (!lesson) throw new NotFoundError('Lesson');
 
-  if (!lesson.videoAsset || lesson.videoAsset.status !== 'READY' || !lesson.videoAsset.hlsManifestKey) {
+  if (!lesson.videoAsset) {
+    throw new AppError('Video is not ready for playback yet', 404, 'VIDEO_NOT_READY');
+  }
+
+  // If VdoCipher is still marked PROCESSING, check live status once
+  if (
+    lesson.videoAsset.provider === 'VIDEOCIPHER' &&
+    lesson.videoAsset.status === 'PROCESSING' &&
+    lesson.videoAsset.vdoCipherVideoId
+  ) {
+    try {
+      const info = await getVdoCipherVideoInfo(lesson.videoAsset.vdoCipherVideoId);
+      if (info.status.toLowerCase() === 'ready') {
+        lesson.videoAsset = await prisma.videoAsset.update({
+          where: { id: lesson.videoAsset.id },
+          data: {
+            status: 'READY',
+            durationSeconds: info.lengthSeconds || lesson.videoAsset.durationSeconds,
+            processedAt: new Date(),
+          },
+        });
+      }
+    } catch {
+      // Ignore transient lookup failures
+    }
+  }
+
+  const hasAsset =
+    (lesson.videoAsset.provider === 'VIDEOCIPHER' && Boolean(lesson.videoAsset.vdoCipherVideoId)) ||
+    Boolean(lesson.videoAsset.hlsManifestKey);
+
+  if (lesson.videoAsset.status !== 'READY' || !hasAsset) {
     throw new AppError('Video is not ready for playback yet', 404, 'VIDEO_NOT_READY');
   }
 
@@ -79,14 +111,40 @@ router.post('/lessons/:lessonId/session', requireAuth, async (req, res) => {
     playbackSessionId = session.id;
   }
 
-  res.json({
+  const watermarkStudentId = user.studentProfile?.studentId ?? 'ADMIN-PREVIEW';
+  const watermarkText = `${watermarkStudentId} · ${user.name}`;
+
+  if (lesson.videoAsset!.provider === 'VIDEOCIPHER' && lesson.videoAsset!.vdoCipherVideoId) {
+    const { otp, playbackInfo } = await generateVdoCipherOtp(
+      lesson.videoAsset!.vdoCipherVideoId,
+      watermarkText,
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        provider: 'VIDEOCIPHER',
+        playbackSessionId,
+        otp,
+        playbackInfo,
+        durationSeconds: lesson.videoAsset!.durationSeconds ?? lesson.durationSeconds ?? 0,
+        watermark: {
+          studentId: watermarkStudentId,
+          studentName: user.name,
+        },
+      },
+    });
+  }
+
+  return res.json({
     success: true,
     data: {
+      provider: 'R2_HLS',
       playbackSessionId,
       playlistUrl: `/api/video/lessons/${lessonId}/playlist.m3u8`,
       durationSeconds: lesson.videoAsset!.durationSeconds ?? lesson.durationSeconds ?? 0,
       watermark: {
-        studentId: user.studentProfile?.studentId ?? 'ADMIN-PREVIEW',
+        studentId: watermarkStudentId,
         studentName: user.name,
       },
     },

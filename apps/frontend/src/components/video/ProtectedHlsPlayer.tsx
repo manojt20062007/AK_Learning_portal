@@ -11,8 +11,11 @@ interface ProtectedHlsPlayerProps {
 }
 
 interface SessionPayload {
+  provider?: 'R2_HLS' | 'VIDEOCIPHER';
   playbackSessionId: string | null;
-  playlistUrl: string;
+  playlistUrl?: string;
+  otp?: string;
+  playbackInfo?: string;
   durationSeconds: number;
   watermark: {
     studentId: string;
@@ -71,8 +74,12 @@ export default function ProtectedHlsPlayer({
         const payload = json.data as SessionPayload;
         setSession(payload);
 
+        if (payload.provider === 'VIDEOCIPHER') {
+          return;
+        }
+
         const video = videoRef.current;
-        if (!video) return;
+        if (!video || !payload.playlistUrl) return;
 
         const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api').replace(/\/api\/?$/, '');
         const fullPlaylistUrl = `${apiOrigin}${payload.playlistUrl}`;
@@ -157,23 +164,34 @@ export default function ProtectedHlsPlayer({
         </div>
       )}
 
-      <video
-        ref={videoRef}
-        controls
-        controlsList="nodownload"
-        playsInline
-        onEnded={onEnded}
-        className="w-full h-full object-contain"
-      />
+      {session?.provider === 'VIDEOCIPHER' && session.otp && session.playbackInfo ? (
+        <iframe
+          src={`https://player.vdocipher.com/v2/?otp=${encodeURIComponent(session.otp)}&playbackInfo=${encodeURIComponent(session.playbackInfo)}`}
+          className="w-full h-full border-0"
+          allow="encrypted-media"
+          allowFullScreen
+        />
+      ) : (
+        <>
+          <video
+            ref={videoRef}
+            controls
+            controlsList="nodownload"
+            playsInline
+            onEnded={onEnded}
+            className="w-full h-full object-contain"
+          />
 
-      {session && !error && (
-        <div
-          className={`pointer-events-none absolute ${WATERMARK_POSITIONS[wmIndex]} z-10 transition-all duration-700`}
-        >
-          <div className="bg-black/45 backdrop-blur-sm text-white/75 text-[11px] font-mono px-2.5 py-1 rounded border border-white/10">
-            {session.watermark.studentId} · {session.watermark.studentName}
-          </div>
-        </div>
+          {session && !error && (
+            <div
+              className={`pointer-events-none absolute ${WATERMARK_POSITIONS[wmIndex]} z-10 transition-all duration-700`}
+            >
+              <div className="bg-black/45 backdrop-blur-sm text-white/75 text-[11px] font-mono px-2.5 py-1 rounded border border-white/10">
+                {session.watermark.studentId} · {session.watermark.studentName}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

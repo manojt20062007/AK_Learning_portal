@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Loader2, CheckCircle, AlertCircle,
-  MessageCircle, Copy, KeyRound, UserX, UserCheck, BookPlus, ExternalLink
+  MessageCircle, Copy, KeyRound, UserX, UserCheck, BookPlus, ExternalLink, Trash2
 } from 'lucide-react';
 import AdminShell from '@/components/layout/AdminShell';
 
@@ -67,6 +67,10 @@ export default function AdminStudentsPage() {
   const [enrollTarget, setEnrollTarget] = useState<StudentRow | null>(null);
   const [enrollCourseId, setEnrollCourseId] = useState('');
   const [enrolling, setEnrolling] = useState(false);
+
+  // Permanent delete modal
+  const [deleteTarget, setDeleteTarget] = useState<StudentRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = async (q = search) => {
     setLoading(true);
@@ -187,6 +191,29 @@ export default function AdminStudentsPage() {
     }
   };
 
+  const handlePermanentDelete = async () => {
+    if (!deleteTarget) return;
+    setError('');
+    setDeleting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/students/${deleteTarget.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.message || 'Failed to delete student');
+        return;
+      }
+      setDeleteTarget(null);
+      loadData();
+    } catch {
+      setError('Failed to delete student');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const copyText = (text: string, type: 'msg' | 'link') => {
     navigator.clipboard.writeText(text);
     setCopiedField(type);
@@ -300,6 +327,13 @@ export default function AdminStudentsPage() {
                           className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100"
                         >
                           {s.isActive ? <UserX className="w-3.5 h-3.5 text-red-500" /> : <UserCheck className="w-3.5 h-3.5 text-green-600" />}
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(s)}
+                          title="Delete permanently"
+                          className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -416,6 +450,36 @@ export default function AdminStudentsPage() {
                 {enrolling ? 'Assigning...' : 'Assign Course'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-zinc-200 max-w-md w-full p-6 shadow-xl">
+            <h2 className="text-base font-bold text-zinc-950 mb-2">Delete Student Permanently?</h2>
+            <p className="text-sm text-zinc-600 mb-5">
+              This will permanently remove <strong>{deleteTarget.name}</strong>{' '}
+              <span className="font-mono text-xs">({deleteTarget.studentProfile?.studentId ?? deleteTarget.email})</span>{' '}
+              along with their enrollments, lesson progress, quiz attempts, and certificates. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 border border-zinc-300 text-zinc-700 font-medium py-2 rounded-md hover:bg-zinc-50 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePermanentDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-600 text-white font-medium py-2 rounded-md hover:bg-red-700 disabled:opacity-60 text-sm"
+              >
+                {deleting ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
           </div>
         </div>
       )}

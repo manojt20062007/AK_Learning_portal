@@ -369,4 +369,59 @@ router.post('/:id/enroll', async (req, res) => {
   res.status(201).json({ success: true, message: `Enrolled student in ${course.title}` });
 });
 
+// DELETE /api/admin/students/:id - Permanently delete a student and all related records
+router.delete('/:id', async (req, res) => {
+  const adminId = getCurrentUserId(req);
+
+  const user = await prisma.user.findUnique({
+    where: { id: req.params.id, role: 'STUDENT' },
+    include: {
+      studentProfile: {
+        include: { enrollments: { select: { courseId: true } } },
+      },
+    },
+  });
+  if (!user) throw new NotFoundError('Student');
+
+  const profile = user.studentProfile;
+  const studentIdLabel = profile?.studentId ?? user.email;
+
+  await prisma.$transaction(async (tx) => {
+    if (profile) {
+      await tx.lessonProgress.deleteMany({ where: { studentProfileId: profile.id } });
+      await tx.playbackSession.deleteMany({ where: { studentProfileId: profile.id } });
+      await tx.quizAttempt.deleteMany({ where: { studentProfileId: profile.id } });
+      await tx.certificate.deleteMany({ where: { studentProfileId: profile.id } });
+      await tx.review.deleteMany({ where: { studentProfileId: profile.id } });
+      await tx.enrollment.deleteMany({ where: { studentProfileId: profile.id } });
+
+      for (const enr of profile.enrollments) {
+        await tx.course.updateMany({
+          where: { id: enr.courseId, enrollmentCount: { gt: 0 } },
+          data: { enrollmentCount: { decrement: 1 } },
+        });
+      }
+    }
+
+    await tx.notification.deleteMany({
+      where: { OR: [{ recipientId: user.id }, { senderId: user.id }] },
+    });
+
+    await tx.user.delete({ where: { id: user.id } });
+
+    await tx.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'STUDENT_DEACTIVATED',
+        entityType: 'User',
+        entityId: user.id,
+        description: `Permanently deleted student: ${user.name} (${studentIdLabel})`,
+      },
+    });
+  });
+
+  logger.info(`Student permanently deleted: ${studentIdLabel} by admin ${adminId}`);
+  res.json({ success: true, message: `Student ${user.name} permanently deleted` });
+});
+
 export default router;

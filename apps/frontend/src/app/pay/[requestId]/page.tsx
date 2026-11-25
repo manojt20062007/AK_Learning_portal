@@ -6,7 +6,7 @@ import Link from 'next/link';
 import QRCode from 'qrcode';
 import {
   Copy, CheckCircle, AlertCircle, Loader2, ChevronRight,
-  Smartphone, Calendar, Hash, QrCode, ArrowRight, ExternalLink
+  Smartphone, Calendar, Hash, QrCode, ArrowRight, Download
 } from 'lucide-react';
 
 interface UpiSettings {
@@ -223,16 +223,27 @@ export default function PaymentPage({ params }: { params: Promise<{ requestId: s
               </div>
             )}
 
-            {/* Mobile UPI App Deep Link Button */}
-            {upiDeepLink && (
-              <a
-                href={upiDeepLink}
-                className="flex md:hidden items-center justify-center gap-2 w-full bg-zinc-950 text-white font-semibold py-3 px-4 rounded-xl hover:bg-zinc-800 transition-colors text-sm mb-4 shadow-sm"
-              >
-                <Smartphone className="w-4 h-4" />
-                Pay ₹{(amountPaise / 100).toLocaleString('en-IN')} via UPI App
-                <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-              </a>
+            {/* Mobile Quick Actions: Download QR (to scan from Gallery) + Copy UPI ID */}
+            {(qrDataUrl || upi?.qrCodeUrl) && (
+              <div className="flex md:hidden items-center gap-2 mb-4">
+                <a
+                  href={qrDataUrl || upi?.qrCodeUrl || ''}
+                  download={`AK-Learning-UPI-QR.png`}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 bg-zinc-950 text-white font-semibold py-2.5 px-3 rounded-xl hover:bg-zinc-800 transition-colors text-xs shadow-sm"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Save QR to Pay
+                </a>
+                {upi?.upiId && (
+                  <button
+                    type="button"
+                    onClick={copyUpi}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 border border-zinc-300 bg-white text-zinc-900 font-semibold py-2.5 px-3 rounded-xl hover:bg-zinc-50 transition-colors text-xs"
+                  >
+                    {copied ? <><CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy UPI ID</>}
+                  </button>
+                )}
+              </div>
             )}
 
             {/* UPI ID */}

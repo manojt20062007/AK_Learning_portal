@@ -40,27 +40,18 @@ router.get('/', async (req, res) => {
   res.json({ success: true, data: sessions });
 });
 
-// POST /api/admin/live - Schedule a Jitsi or Whereby live session for a course
+// POST /api/admin/live - Schedule a Jitsi live session for a course
 router.post('/', async (req, res) => {
-  const { courseId, title, description, scheduledAt, durationMinutes, provider, externalRoomUrl } = req.body as {
+  const { courseId, title, description, scheduledAt, durationMinutes } = req.body as {
     courseId?: string;
     title?: string;
     description?: string;
     scheduledAt?: string;
     durationMinutes?: number;
-    provider?: 'JITSI' | 'WHEREBY';
-    externalRoomUrl?: string;
   };
 
   if (!courseId || !title || title.trim().length < 2 || !scheduledAt) {
     throw new AppError('courseId, title, and scheduledAt are required', 400);
-  }
-
-  const chosenProvider = provider === 'WHEREBY' ? 'WHEREBY' : 'JITSI';
-  if (chosenProvider === 'WHEREBY') {
-    if (!externalRoomUrl || !/^https:\/\/([a-z0-9-]+\.)?whereby\.com\/.+/i.test(externalRoomUrl.trim())) {
-      throw new AppError('Enter a valid Whereby room URL (e.g. https://whereby.com/your-room)', 400);
-    }
   }
 
   const course = await prisma.course.findUnique({
@@ -81,9 +72,9 @@ router.post('/', async (req, res) => {
       courseId,
       title: title.trim(),
       description: description?.trim() ?? null,
-      provider: chosenProvider,
+      provider: 'JITSI',
       roomName,
-      externalRoomUrl: chosenProvider === 'WHEREBY' ? externalRoomUrl!.trim() : null,
+      externalRoomUrl: null,
       scheduledAt: parsedDate,
       durationMinutes: durationMinutes ? Math.max(10, Math.min(480, Number(durationMinutes))) : 60,
       status: 'SCHEDULED',

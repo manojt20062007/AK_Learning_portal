@@ -101,7 +101,7 @@ router.get('/:sessionId/join', requireAuth, async (req, res) => {
   let roomName = session.roomName;
   let jwt: string | undefined;
 
-  if (session.provider === 'JITSI' && isJaasConfigured()) {
+  if (isJaasConfigured()) {
     const signed = signJaasJwt({
       userId: user.id,
       displayName,

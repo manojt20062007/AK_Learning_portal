@@ -16,7 +16,9 @@ interface LiveSessionItem {
   courseId: string;
   title: string;
   description?: string | null;
+  provider: string;
   roomName: string;
+  externalRoomUrl?: string | null;
   scheduledAt: string;
   durationMinutes: number;
   status: 'SCHEDULED' | 'LIVE' | 'ENDED';
@@ -34,6 +36,8 @@ export default function AdminLivePage() {
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
   const [courseId, setCourseId] = useState('');
+  const [provider, setProvider] = useState<'WHEREBY' | 'JITSI'>('WHEREBY');
+  const [externalRoomUrl, setExternalRoomUrl] = useState('');
   const [title, setTitle] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(60);
@@ -75,6 +79,8 @@ export default function AdminLivePage() {
         body: JSON.stringify({
           courseId,
           title,
+          provider,
+          externalRoomUrl: provider === 'WHEREBY' ? externalRoomUrl : undefined,
           scheduledAt: new Date(scheduledAt).toISOString(),
           durationMinutes: Number(durationMinutes),
         }),
@@ -83,6 +89,7 @@ export default function AdminLivePage() {
       if (!res.ok || !json.success) { setError(json.message || 'Failed to schedule'); return; }
       setShowCreate(false);
       setTitle('');
+      setExternalRoomUrl('');
       setScheduledAt('');
       loadAll();
     } finally {
@@ -165,7 +172,12 @@ export default function AdminLivePage() {
                     <div className="font-medium text-zinc-950">{s.title}</div>
                     <div className="text-xs text-blue-700">{s.course.title}</div>
                   </td>
-                  <td className="px-5 py-3.5 font-mono text-xs text-zinc-600">{s.roomName}</td>
+                  <td className="px-5 py-3.5 font-mono text-xs text-zinc-600">
+                    <span className="inline-block bg-zinc-100 px-1.5 py-0.5 rounded mr-1.5 text-[10px] font-semibold">
+                      {s.provider}
+                    </span>
+                    {s.provider === 'WHEREBY' ? s.externalRoomUrl : s.roomName}
+                  </td>
                   <td className="px-5 py-3.5 text-xs text-zinc-600 tabular-nums">
                     {new Date(s.scheduledAt).toLocaleString('en-IN')} ({s.durationMinutes}m)
                   </td>
@@ -243,6 +255,30 @@ export default function AdminLivePage() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Provider</label>
+                <select
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value as 'WHEREBY' | 'JITSI')}
+                  className="w-full px-3 py-2 rounded-md border border-zinc-300 text-sm bg-white"
+                >
+                  <option value="WHEREBY">Whereby Embedded (Free 1-room URL, 45m/session)</option>
+                  <option value="JITSI">Jitsi Meet (Auto room per course)</option>
+                </select>
+              </div>
+              {provider === 'WHEREBY' && (
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">Whereby Room URL *</label>
+                  <input
+                    type="url"
+                    required
+                    value={externalRoomUrl}
+                    onChange={(e) => setExternalRoomUrl(e.target.value)}
+                    placeholder="https://whereby.com/your-room-name"
+                    className="w-full px-3 py-2 rounded-md border border-zinc-300 text-sm"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-1">Session Title *</label>
                 <input

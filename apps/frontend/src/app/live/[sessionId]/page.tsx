@@ -10,7 +10,9 @@ interface JoinPayload {
   title: string;
   courseId: string;
   courseTitle: string;
+  provider?: 'JITSI' | 'WHEREBY';
   roomName: string;
+  externalRoomUrl?: string | null;
   jitsiDomain: string;
   displayName: string;
   email: string;
@@ -65,6 +67,10 @@ export default function LiveClassroomPage({ params }: { params: Promise<{ sessio
 
         const payload = json.data as JoinPayload;
         setInfo(payload);
+
+        if (payload.provider === 'WHEREBY') {
+          return;
+        }
 
         // Load Jitsi Meet external API script
         await new Promise<void>((resolve, reject) => {
@@ -147,6 +153,12 @@ export default function LiveClassroomPage({ params }: { params: Promise<{ sessio
               ← Back to Dashboard
             </Link>
           </div>
+        ) : info?.provider === 'WHEREBY' && info.externalRoomUrl ? (
+          <iframe
+            src={`${info.externalRoomUrl}${info.externalRoomUrl.includes('?') ? '&' : '?'}displayName=${encodeURIComponent(info.displayName)}`}
+            allow="camera; microphone; fullscreen; speaker; display-capture; compute-pressure"
+            className="w-full h-[calc(100vh-3.5rem)] border-0"
+          />
         ) : (
           <div ref={containerRef} className="w-full h-[calc(100vh-3.5rem)]" />
         )}

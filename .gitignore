@@ -65,6 +65,5 @@ backups/
 *.crt
 
 # HLS segments (generated)
-*.ts
-*.m3u8
 hls_output/
+*.m3u8

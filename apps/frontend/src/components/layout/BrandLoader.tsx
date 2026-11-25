@@ -4,7 +4,7 @@ export default function BrandLoader({ label = 'Loading...' }: { label?: string }
       <div className="relative flex flex-col items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo.svg"
+          src="/logo.png"
           alt="AK Learning"
           className="w-14 h-14 rounded-xl object-contain animate-pulse shadow-sm"
         />

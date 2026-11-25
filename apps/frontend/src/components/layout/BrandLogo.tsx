@@ -17,7 +17,7 @@ export default function BrandLogo({ size = 'md', showText = true, subtitle }: Br
     <span className="inline-flex items-center gap-2.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo.svg"
+        src="/logo.png"
         alt="AK Learning"
         className={`${SIZE_MAP[size]} rounded-md object-contain flex-shrink-0`}
       />

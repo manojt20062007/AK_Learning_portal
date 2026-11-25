@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/database';
 import { requireAuth, requireStudent, getCurrentUserId } from '../middleware/auth';
 import { AppError, ForbiddenError, NotFoundError } from '../middleware/errorHandler';
+import { isJaasConfigured, signJaasJwt } from '../services/jaas';
 
 const router = Router();
 
@@ -96,6 +97,23 @@ router.get('/:sessionId/join', requireAuth, async (req, res) => {
     ? `${user.name} (Host)`
     : `${user.name} (${user.studentProfile?.studentId ?? 'Student'})`;
 
+  let jitsiDomain = 'meet.jit.si';
+  let roomName = session.roomName;
+  let jwt: string | undefined;
+
+  if (session.provider === 'JITSI' && isJaasConfigured()) {
+    const signed = signJaasJwt({
+      userId: user.id,
+      displayName,
+      email: user.email,
+      roomName: session.roomName,
+      isModerator: isHost,
+    });
+    jitsiDomain = '8x8.vc';
+    roomName = signed.roomPath;
+    jwt = signed.jwt;
+  }
+
   res.json({
     success: true,
     data: {
@@ -105,9 +123,10 @@ router.get('/:sessionId/join', requireAuth, async (req, res) => {
       courseId: session.course.id,
       courseTitle: session.course.title,
       provider: session.provider,
-      roomName: session.roomName,
+      roomName,
       externalRoomUrl: session.externalRoomUrl,
-      jitsiDomain: 'meet.jit.si',
+      jitsiDomain,
+      jwt,
       displayName,
       email: user.email,
       isHost,

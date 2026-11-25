@@ -14,6 +14,7 @@ interface JoinPayload {
   roomName: string;
   externalRoomUrl?: string | null;
   jitsiDomain: string;
+  jwt?: string;
   displayName: string;
   email: string;
   isHost: boolean;
@@ -27,6 +28,7 @@ declare global {
       options: {
         roomName: string;
         parentNode: HTMLElement;
+        jwt?: string;
         width?: string | number;
         height?: string | number;
         userInfo?: { displayName?: string; email?: string };
@@ -91,6 +93,7 @@ export default function LiveClassroomPage({ params }: { params: Promise<{ sessio
         apiInstance = new window.JitsiMeetExternalAPI(payload.jitsiDomain, {
           roomName: payload.roomName,
           parentNode: containerRef.current,
+          ...(payload.jwt && { jwt: payload.jwt }),
           width: '100%',
           height: '100%',
           userInfo: {

@@ -23,6 +23,10 @@ const EnvSchema = z.object({
   R2_PUBLIC_DOMAIN: z.string().optional(),
   // VdoCipher
   VIDEOCIPHER_API_SECRET: z.string().optional(),
+  // 8x8 JaaS (Jitsi as a Service)
+  JAAS_APP_ID: z.string().optional(),
+  JAAS_API_KEY_ID: z.string().optional(),
+  JAAS_PRIVATE_KEY: z.string().optional(),
   // Email
   BREVO_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().optional(),

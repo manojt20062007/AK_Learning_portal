@@ -30,6 +30,7 @@ export default function AdminLivePage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<LiveSessionItem[]>([]);
   const [courses, setCourses] = useState<CourseOption[]>([]);
+  const [jaasConfigured, setJaasConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -46,14 +47,17 @@ export default function AdminLivePage() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [sRes, cRes] = await Promise.all([
+      const [sRes, cRes, cfgRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/live`, { credentials: 'include' }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/courses?limit=50`, { credentials: 'include' }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/live/config`, { credentials: 'include' }),
       ]);
       if (sRes.status === 401 || sRes.status === 403) { router.push('/login'); return; }
       const sJson = await sRes.json();
       const cJson = await cRes.json();
+      const cfgJson = await cfgRes.json();
       if (sJson.success) setSessions(sJson.data);
+      if (cfgJson.success) setJaasConfigured(Boolean(cfgJson.data?.jaasConfigured));
       if (cJson.success) {
         setCourses(cJson.data);
         if (!courseId && cJson.data.length > 0) setCourseId(cJson.data[0].id);
@@ -136,8 +140,16 @@ export default function AdminLivePage() {
         </div>
       )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 text-xs text-blue-900">
-        Each live session generates a <strong>separate Jitsi Meet room</strong> scoped to its course. Only students enrolled in that course can join. Click <strong>Join as Host</strong> and sign in once with Google/GitHub inside Jitsi to start the room.
+      <div className={`border rounded-lg px-4 py-3 mb-6 text-xs ${
+        jaasConfigured
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+          : 'bg-blue-50 border-blue-200 text-blue-900'
+      }`}>
+        {jaasConfigured ? (
+          <><strong>8x8 JaaS Host-Only Moderation Active:</strong> Admins join with a signed moderator JWT; enrolled students join as non-moderators and cannot kick or mute the host.</>
+        ) : (
+          <>Each live session generates a <strong>separate room</strong> per course. To enforce strict host-only moderation on Jitsi, set <code>JAAS_APP_ID</code>, <code>JAAS_API_KEY_ID</code>, and <code>JAAS_PRIVATE_KEY</code> in your backend environment (or use <strong>Whereby Embedded</strong>).</>
+        )}
       </div>
 
       {loading ? (

@@ -3,8 +3,17 @@ import { randomBytes } from 'crypto';
 import { prisma } from '../../config/database';
 import { AppError, NotFoundError } from '../../middleware/errorHandler';
 import { LiveSessionStatus } from '@prisma/client';
+import { isJaasConfigured } from '../../services/jaas';
 
 const router = Router();
+
+// GET /api/admin/live/config
+router.get('/config', (_req, res) => {
+  res.json({
+    success: true,
+    data: { jaasConfigured: isJaasConfigured() },
+  });
+});
 
 function makeRoomName(courseSlug: string): string {
   const safeSlug = courseSlug.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) || 'course';

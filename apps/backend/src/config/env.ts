@@ -24,6 +24,7 @@ const EnvSchema = z.object({
   // VdoCipher
   VIDEOCIPHER_API_SECRET: z.string().optional(),
   // Email
+  BREVO_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_SECURE: z.string().transform((v: string) => v === 'true').default('false'),

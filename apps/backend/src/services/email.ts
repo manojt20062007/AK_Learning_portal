@@ -9,6 +9,10 @@ interface SendEmailOptions {
   text?: string;
 }
 
+function isBrevoApiConfigured(): boolean {
+  return Boolean(env.BREVO_API_KEY && env.BREVO_API_KEY.trim().length > 0);
+}
+
 function isSmtpConfigured(): boolean {
   return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
 }
@@ -18,6 +22,9 @@ function createTransporter() {
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: env.SMTP_SECURE,
+    connectionTimeout: 4000,
+    greetingTimeout: 4000,
+    socketTimeout: 5000,
     auth: {
       user: env.SMTP_USER,
       pass: env.SMTP_PASS,
@@ -25,14 +32,56 @@ function createTransporter() {
   });
 }
 
+function parseFromHeader(from: string): { name?: string; email: string } {
+  const match = from.match(/^(.*?)\s*<([^>]+)>$/);
+  if (match) {
+    return { name: match[1].trim().replace(/^"|"$/g, ''), email: match[2].trim() };
+  }
+  return { email: from.trim() };
+}
+
 /**
- * Send an email via Brevo SMTP (or log in dev when SMTP is not configured).
- * Never throws so account creation/payment approval does not roll back on transient SMTP errors.
+ * Send an email via Brevo HTTP API (preferred on Render) or Brevo SMTP with fast timeouts.
+ * Never throws so account creation/payment approval does not roll back on transient email errors.
  */
 export async function sendEmail(options: SendEmailOptions): Promise<{ sent: boolean; reason?: string }> {
+  if (isBrevoApiConfigured()) {
+    try {
+      const sender = parseFromHeader(env.EMAIL_FROM);
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': env.BREVO_API_KEY!.trim(),
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender,
+          to: [{ email: options.to }],
+          subject: options.subject,
+          htmlContent: options.html,
+          ...(options.text && { textContent: options.text }),
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        logger.error(`Brevo API error (${res.status}): ${errText}`);
+        return { sent: false, reason: `Brevo API ${res.status}` };
+      }
+
+      logger.info(`Email sent via Brevo HTTP API to ${options.to}: ${options.subject}`);
+      return { sent: true };
+    } catch (err) {
+      logger.error(`Brevo API request failed for ${options.to}:`, err);
+      return { sent: false, reason: err instanceof Error ? err.message : 'Brevo API error' };
+    }
+  }
+
   if (!isSmtpConfigured()) {
-    logger.warn(`SMTP not configured — skipping email to ${options.to} (${options.subject})`);
-    return { sent: false, reason: 'SMTP not configured' };
+    logger.warn(`Email not configured — skipping email to ${options.to} (${options.subject})`);
+    return { sent: false, reason: 'Email not configured' };
   }
 
   try {

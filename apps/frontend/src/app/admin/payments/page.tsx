@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import QRCode from 'qrcode';
 import {
   CheckCircle, XCircle, Clock, AlertCircle, Loader2,
-  Search, ChevronDown, ExternalLink, MessageCircle, Copy
+  Search, ChevronDown, ExternalLink, MessageCircle, Copy, QrCode
 } from 'lucide-react';
 import AdminShell from '@/components/layout/AdminShell';
 
@@ -58,6 +59,13 @@ export default function AdminPaymentsPage() {
     setupLink?: string;
   } | null>(null);
 
+  // UPI Settings Modal state
+  const [showUpiModal, setShowUpiModal] = useState(false);
+  const [upiId, setUpiId] = useState('');
+  const [upiDisplayName, setUpiDisplayName] = useState('AK Learning');
+  const [upiPreviewQr, setUpiPreviewQr] = useState<string | null>(null);
+  const [savingUpi, setSavingUpi] = useState(false);
+
   const loadPayments = async () => {
     setLoading(true);
     try {
@@ -77,6 +85,55 @@ export default function AdminPaymentsPage() {
   };
 
   useEffect(() => { loadPayments(); }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/settings/upi`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setUpiId(d.data.upiId ?? '');
+          setUpiDisplayName(d.data.displayName ?? 'AK Learning');
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!upiId.trim()) {
+      setUpiPreviewQr(null);
+      return;
+    }
+    const uri = `upi://pay?pa=${encodeURIComponent(upiId.trim())}&pn=${encodeURIComponent(upiDisplayName.trim() || 'AK Learning')}&cu=INR`;
+    QRCode.toDataURL(uri, { width: 220, margin: 2 })
+      .then(setUpiPreviewQr)
+      .catch(() => setUpiPreviewQr(null));
+  }, [upiId, upiDisplayName]);
+
+  const saveUpiSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingUpi(true);
+    setError('');
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/settings/upi`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          upiId: upiId.trim(),
+          displayName: upiDisplayName.trim() || 'AK Learning',
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.message || 'Failed to save UPI settings');
+        return;
+      }
+      setShowUpiModal(false);
+      setActionSuccess(`UPI settings saved (${upiId.trim()}). QR code will auto-generate on checkout.`);
+    } finally {
+      setSavingUpi(false);
+    }
+  };
 
   const approve = async (id: string) => {
     setActionLoading(true);
@@ -134,18 +191,26 @@ export default function AdminPaymentsPage() {
     <AdminShell
       title="Payment Verification"
       actions={
-        <div className="relative">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="pl-3 pr-8 py-1.5 text-xs font-medium border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 appearance-none bg-white"
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowUpiModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-zinc-300 rounded-md bg-white text-zinc-800 hover:bg-zinc-50"
           >
-            <option value="">All</option>
-            <option value="PENDING">Pending</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REJECTED">Rejected</option>
-          </select>
-          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <QrCode className="w-3.5 h-3.5" /> UPI & QR Settings
+          </button>
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="pl-3 pr-8 py-1.5 text-xs font-medium border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 appearance-none bg-white"
+            >
+              <option value="">All</option>
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+          </div>
         </div>
       }
     >
@@ -332,6 +397,68 @@ export default function AdminPaymentsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* UPI & QR Settings Modal */}
+        {showUpiModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl border border-zinc-200 max-w-md w-full p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-zinc-950 flex items-center gap-2">
+                  <QrCode className="w-4 h-4" /> UPI & Auto-QR Settings
+                </h2>
+                <button onClick={() => setShowUpiModal(false)} className="text-zinc-400 hover:text-zinc-700">
+                  ✕
+                </button>
+              </div>
+
+              {upiPreviewQr && (
+                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 mb-4 text-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={upiPreviewQr}
+                    alt="UPI QR Preview"
+                    className="w-40 h-40 mx-auto rounded-lg bg-white p-1 border border-zinc-200"
+                  />
+                  <p className="text-[11px] text-zinc-500 mt-2">
+                    Auto-generated QR preview (exact course amount is added automatically at checkout)
+                  </p>
+                </div>
+              )}
+
+              <form onSubmit={saveUpiSettings} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">UPI ID *</label>
+                  <input
+                    type="text"
+                    required
+                    value={upiId}
+                    onChange={(e) => setUpiId(e.target.value)}
+                    placeholder="yourname@okaxis"
+                    className="w-full px-3 py-2 rounded-lg border border-zinc-300 text-sm font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">Display Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={upiDisplayName}
+                    onChange={(e) => setUpiDisplayName(e.target.value)}
+                    placeholder="AK Learning"
+                    className="w-full px-3 py-2 rounded-lg border border-zinc-300 text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingUpi}
+                  className="w-full bg-zinc-950 text-white font-semibold py-2.5 rounded-lg hover:bg-zinc-800 disabled:opacity-50 text-sm"
+                >
+                  {savingUpi ? 'Saving...' : 'Save UPI Settings'}
+                </button>
+              </form>
             </div>
           </div>
         )}

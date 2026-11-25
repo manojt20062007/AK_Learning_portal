@@ -1,11 +1,12 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import QRCode from 'qrcode';
 import {
   Copy, CheckCircle, AlertCircle, Loader2, ChevronRight,
-  Smartphone, Calendar, Hash, QrCode, ArrowRight
+  Smartphone, Calendar, Hash, QrCode, ArrowRight, ExternalLink
 } from 'lucide-react';
 
 interface UpiSettings {
@@ -24,6 +25,7 @@ export default function PaymentPage({ params }: { params: Promise<{ requestId: s
   const amountPaise = parseInt(searchParams.get('amount') ?? '0', 10);
 
   const [upi, setUpi] = useState<UpiSettings | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -42,6 +44,30 @@ export default function PaymentPage({ params }: { params: Promise<{ requestId: s
       .then((d) => setUpi(d.data))
       .catch(() => setUpi({ upiId: 'admin@upi', displayName: 'AK Learning', qrCodeUrl: null }));
   }, []);
+
+  const upiDeepLink = useMemo(() => {
+    if (!upi?.upiId) return '';
+    const params = new URLSearchParams({
+      pa: upi.upiId,
+      pn: upi.displayName || 'AK Learning',
+      cu: 'INR',
+      tn: `Course Enrollment ${requestId.slice(0, 8)}`,
+    });
+    if (amountPaise > 0) {
+      params.set('am', (amountPaise / 100).toFixed(2));
+    }
+    return `upi://pay?${params.toString()}`;
+  }, [upi, amountPaise, requestId]);
+
+  useEffect(() => {
+    if (!upiDeepLink) {
+      setQrDataUrl(null);
+      return;
+    }
+    QRCode.toDataURL(upiDeepLink, { width: 280, margin: 2 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(null));
+  }, [upiDeepLink]);
 
   const copyUpi = () => {
     if (upi?.upiId) {
@@ -182,19 +208,31 @@ export default function PaymentPage({ params }: { params: Promise<{ requestId: s
               <div className="text-sm text-gray-500">Course enrollment fee</div>
             </div>
 
-            {/* QR Code */}
-            {upi?.qrCodeUrl ? (
+            {/* QR Code (auto-generated from UPI ID + exact amount, or custom uploaded QR) */}
+            {(qrDataUrl || upi?.qrCodeUrl) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={upi.qrCodeUrl}
+                src={qrDataUrl || upi?.qrCodeUrl || ''}
                 alt="UPI QR Code"
-                className="w-48 h-48 mx-auto mb-5 rounded-xl border-2 border-gray-100"
+                className="w-48 h-48 mx-auto mb-4 rounded-xl border-2 border-gray-100 bg-white p-1"
               />
             ) : (
-              <div className="w-48 h-48 mx-auto mb-5 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
+              <div className="w-48 h-48 mx-auto mb-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center">
                 <QrCode className="w-10 h-10 text-gray-300 mb-2" />
                 <span className="text-xs text-gray-400">QR Code</span>
               </div>
+            )}
+
+            {/* Mobile UPI App Deep Link Button */}
+            {upiDeepLink && (
+              <a
+                href={upiDeepLink}
+                className="flex md:hidden items-center justify-center gap-2 w-full bg-zinc-950 text-white font-semibold py-3 px-4 rounded-xl hover:bg-zinc-800 transition-colors text-sm mb-4 shadow-sm"
+              >
+                <Smartphone className="w-4 h-4" />
+                Pay ₹{(amountPaise / 100).toLocaleString('en-IN')} via UPI App
+                <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+              </a>
             )}
 
             {/* UPI ID */}

@@ -11,9 +11,10 @@ interface ProtectedHlsPlayerProps {
 }
 
 interface SessionPayload {
-  provider?: 'R2_HLS' | 'VIDEOCIPHER';
+  provider?: 'R2_HLS' | 'VIDEOCIPHER' | 'VIMEO';
   playbackSessionId: string | null;
   playlistUrl?: string;
+  vimeoEmbedUrl?: string;
   otp?: string;
   playbackInfo?: string;
   durationSeconds: number;
@@ -74,7 +75,7 @@ export default function ProtectedHlsPlayer({
         const payload = json.data as SessionPayload;
         setSession(payload);
 
-        if (payload.provider === 'VIDEOCIPHER') {
+        if (payload.provider === 'VIDEOCIPHER' || payload.provider === 'VIMEO') {
           return;
         }
 
@@ -164,7 +165,25 @@ export default function ProtectedHlsPlayer({
         </div>
       )}
 
-      {session?.provider === 'VIDEOCIPHER' && session.otp && session.playbackInfo ? (
+      {session?.provider === 'VIMEO' && session.vimeoEmbedUrl ? (
+        <>
+          <iframe
+            src={`${session.vimeoEmbedUrl}${session.vimeoEmbedUrl.includes('?') ? '&' : '?'}title=0&byline=0&portrait=0`}
+            className="w-full h-full border-0"
+            allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
+            allowFullScreen
+          />
+          {!error && (
+            <div
+              className={`pointer-events-none absolute ${WATERMARK_POSITIONS[wmIndex]} z-10 transition-all duration-700`}
+            >
+              <div className="bg-black/45 backdrop-blur-sm text-white/75 text-[11px] font-mono px-2.5 py-1 rounded border border-white/10">
+                {session.watermark.studentId} · {session.watermark.studentName}
+              </div>
+            </div>
+          )}
+        </>
+      ) : session?.provider === 'VIDEOCIPHER' && session.otp && session.playbackInfo ? (
         <iframe
           src={`https://player.vdocipher.com/v2/?otp=${encodeURIComponent(session.otp)}&playbackInfo=${encodeURIComponent(session.playbackInfo)}`}
           className="w-full h-full border-0"

@@ -19,7 +19,8 @@ interface Lesson {
   title: string;
   description?: string | null;
   isFreePreview: boolean;
-  videoAsset?: { status: string } | null;
+  durationSeconds?: number | null;
+  videoAsset?: { status: string; provider?: string; originalKey?: string | null } | null;
   resources: Resource[];
   quiz?: { id: string; title: string; isPublished: boolean } | null;
 }
@@ -51,6 +52,12 @@ export default function AdminCourseBuilderPage({ params }: { params: Promise<{ i
   const [resTitle, setResTitle] = useState('');
   const [resType, setResType] = useState('PDF');
   const [resUrl, setResUrl] = useState('');
+
+  // Vimeo link modal state
+  const [vimeoLesson, setVimeoLesson] = useState<Lesson | null>(null);
+  const [vimeoUrl, setVimeoUrl] = useState('');
+  const [vimeoMinutes, setVimeoMinutes] = useState('');
+  const [savingVimeo, setSavingVimeo] = useState(false);
 
   const loadCourse = async () => {
     try {
@@ -144,6 +151,38 @@ export default function AdminCourseBuilderPage({ params }: { params: Promise<{ i
       { method: 'DELETE', credentials: 'include' },
     );
     loadCourse();
+  };
+
+  const saveVimeoLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vimeoLesson) return;
+    setError('');
+    setSavingVimeo(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/videos/lessons/${vimeoLesson.id}/vimeo`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            vimeoUrl,
+            durationMinutes: vimeoMinutes ? Number(vimeoMinutes) : undefined,
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.message || 'Failed to save Vimeo link');
+        return;
+      }
+      setVimeoLesson(null);
+      setVimeoUrl('');
+      setVimeoMinutes('');
+      loadCourse();
+    } finally {
+      setSavingVimeo(false);
+    }
   };
 
   const changeStatus = async (action: 'publish' | 'archive') => {
@@ -251,6 +290,18 @@ export default function AdminCourseBuilderPage({ params }: { params: Promise<{ i
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setVimeoLesson(lesson);
+                          setVimeoUrl(lesson.videoAsset?.originalKey ?? '');
+                          setVimeoMinutes(
+                            lesson.durationSeconds ? String(Math.round(lesson.durationSeconds / 60)) : '',
+                          );
+                        }}
+                        className="inline-flex items-center gap-1 text-xs text-blue-700 hover:underline font-medium"
+                      >
+                        <Video className="w-3.5 h-3.5" /> {lesson.videoAsset?.status === 'READY' ? 'Edit Video' : '+ Vimeo Video'}
+                      </button>
                       <Link
                         href={`/admin/quizzes/${lesson.id}`}
                         className="inline-flex items-center gap-1 text-xs text-purple-600 hover:underline font-medium"
@@ -310,6 +361,53 @@ export default function AdminCourseBuilderPage({ params }: { params: Promise<{ i
           </div>
         ))}
       </div>
+
+      {/* Vimeo Video Link Modal */}
+      {vimeoLesson && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-zinc-200 max-w-md w-full p-6 shadow-xl">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="font-bold text-zinc-950 text-base">Link Vimeo Video</h2>
+              <button onClick={() => setVimeoLesson(null)} className="text-zinc-400 hover:text-zinc-700">✕</button>
+            </div>
+            <p className="text-xs text-zinc-500 mb-4">Lesson: <strong>{vimeoLesson.title}</strong></p>
+            <form onSubmit={saveVimeoLink} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Vimeo Video URL or ID *</label>
+                <input
+                  type="text"
+                  required
+                  value={vimeoUrl}
+                  onChange={(e) => setVimeoUrl(e.target.value)}
+                  placeholder="https://vimeo.com/123456789"
+                  className="w-full px-3 py-2 rounded-md border border-zinc-300 text-sm"
+                />
+                <p className="text-[11px] text-zinc-400 mt-1">
+                  Supports standard links, unlisted links (with hash), or numeric video IDs.
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Duration (minutes, optional)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={vimeoMinutes}
+                  onChange={(e) => setVimeoMinutes(e.target.value)}
+                  placeholder="e.g. 15"
+                  className="w-full px-3 py-2 rounded-md border border-zinc-300 text-sm"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingVimeo}
+                className="w-full bg-zinc-950 text-white font-medium py-2.5 rounded-md hover:bg-zinc-800 disabled:opacity-50 text-sm"
+              >
+                {savingVimeo ? 'Saving...' : 'Save Vimeo Link'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Add Resource Modal */}
       {resourceLessonId && (

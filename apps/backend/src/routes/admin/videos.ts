@@ -117,6 +117,114 @@ router.get('/storage', async (_req, res) => {
   });
 });
 
+// POST /api/admin/videos/lessons/:lessonId/vimeo - Attach a Vimeo video link to a lesson
+router.post('/lessons/:lessonId/vimeo', async (req, res) => {
+  const adminId = getCurrentUserId(req);
+  const lessonId = String(req.params.lessonId);
+  const { vimeoUrl, durationMinutes } = req.body as {
+    vimeoUrl?: string;
+    durationMinutes?: number;
+  };
+
+  if (!vimeoUrl || !vimeoUrl.trim()) {
+    throw new AppError('Vimeo URL or video ID is required', 400);
+  }
+
+  const raw = vimeoUrl.trim();
+  let embedUrl: string | null = null;
+
+  // Match numeric ID only: "123456789"
+  if (/^\d{5,15}$/.test(raw)) {
+    embedUrl = `https://player.vimeo.com/video/${raw}`;
+  } else {
+    // Match vimeo.com/123456789 or vimeo.com/123456789/hash or player.vimeo.com/video/123456789?h=hash
+    const playerMatch = raw.match(/player\.vimeo\.com\/video\/(\d+)(?:\?[^#]*)?/i);
+    const standardMatch = raw.match(/vimeo\.com\/(?:channels\/[^/]+\/|groups\/[^/]+\/videos\/|video\/)?(\d+)(?:\/([a-zA-Z0-9]+))?/i);
+
+    if (playerMatch) {
+      const id = playerMatch[1];
+      const hMatch = raw.match(/[?&]h=([a-zA-Z0-9]+)/);
+      embedUrl = hMatch
+        ? `https://player.vimeo.com/video/${id}?h=${hMatch[1]}`
+        : `https://player.vimeo.com/video/${id}`;
+    } else if (standardMatch) {
+      const id = standardMatch[1];
+      const hash = standardMatch[2];
+      embedUrl = hash
+        ? `https://player.vimeo.com/video/${id}?h=${hash}`
+        : `https://player.vimeo.com/video/${id}`;
+    }
+  }
+
+  if (!embedUrl) {
+    throw new AppError(
+      'Invalid Vimeo URL. Paste a link like https://vimeo.com/123456789 or the numeric video ID.',
+      400,
+    );
+  }
+
+  const lesson = await prisma.lesson.findUnique({ where: { id: lessonId } });
+  if (!lesson) throw new NotFoundError('Lesson');
+
+  const durationSeconds =
+    durationMinutes && durationMinutes > 0 ? Math.round(Number(durationMinutes) * 60) : null;
+
+  const asset = await prisma.$transaction(async (tx) => {
+    const upserted = await tx.videoAsset.upsert({
+      where: { lessonId },
+      create: {
+        lessonId,
+        provider: 'VIMEO',
+        originalKey: embedUrl,
+        hlsManifestKey: null,
+        vdoCipherVideoId: null,
+        status: 'READY',
+        durationSeconds,
+        processedAt: new Date(),
+        errorMessage: null,
+      },
+      update: {
+        provider: 'VIMEO',
+        originalKey: embedUrl,
+        hlsManifestKey: null,
+        vdoCipherVideoId: null,
+        status: 'READY',
+        ...(durationSeconds !== null && { durationSeconds }),
+        processedAt: new Date(),
+        errorMessage: null,
+      },
+    });
+
+    if (durationSeconds !== null) {
+      await tx.lesson.update({
+        where: { id: lessonId },
+        data: { durationSeconds },
+      });
+    }
+
+    await tx.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'VIDEO_UPLOADED',
+        entityType: 'Lesson',
+        entityId: lessonId,
+        description: `Linked Vimeo video (${embedUrl}) to lesson "${lesson.title}"`,
+      },
+    });
+
+    return upserted;
+  });
+
+  res.json({
+    success: true,
+    data: {
+      ...asset,
+      fileSizeBytes: asset.fileSizeBytes ? Number(asset.fileSizeBytes) : 0,
+    },
+    message: 'Vimeo video linked to lesson',
+  });
+});
+
 // GET /api/admin/videos/lessons/:lessonId/status
 router.get('/lessons/:lessonId/status', async (req, res) => {
   let asset = await prisma.videoAsset.findUnique({

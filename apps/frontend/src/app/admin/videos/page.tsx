@@ -63,7 +63,9 @@ export default function AdminVideosPage() {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [courseDetail, setCourseDetail] = useState<CourseDetail | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState('');
-  const [provider, setProvider] = useState<'VIDEOCIPHER' | 'R2_HLS'>('R2_HLS');
+  const [provider, setProvider] = useState<'VIMEO' | 'R2_HLS' | 'VIDEOCIPHER'>('VIMEO');
+  const [vimeoUrl, setVimeoUrl] = useState('');
+  const [vimeoMinutes, setVimeoMinutes] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -112,8 +114,50 @@ export default function AdminVideosPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!selectedLessonId || !file) {
-      setError('Select a lesson and an MP4 file');
+
+    if (!selectedLessonId) {
+      setError('Select a lesson');
+      return;
+    }
+
+    if (provider === 'VIMEO') {
+      if (!vimeoUrl.trim()) {
+        setError('Enter a Vimeo URL or video ID');
+        return;
+      }
+      setUploading(true);
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/admin/videos/lessons/${selectedLessonId}/vimeo`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              vimeoUrl,
+              durationMinutes: vimeoMinutes ? Number(vimeoMinutes) : undefined,
+            }),
+          },
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setError(json.message || 'Failed to save Vimeo link');
+          return;
+        }
+        setSuccess(json.message);
+        setVimeoUrl('');
+        setVimeoMinutes('');
+        loadAll();
+      } catch {
+        setError('Failed to save Vimeo link');
+      } finally {
+        setUploading(false);
+      }
+      return;
+    }
+
+    if (!file) {
+      setError('Select an MP4 file');
       return;
     }
 
@@ -242,18 +286,19 @@ export default function AdminVideosPage() {
             {/* Upload MP4 */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Upload className="w-5 h-5 text-brand-600" /> Upload Lesson Video
+                <Upload className="w-5 h-5 text-brand-600" /> Attach Lesson Video
               </h2>
               <form onSubmit={handleUpload} className="grid md:grid-cols-4 gap-4 items-end">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Provider</label>
                   <select
                     value={provider}
-                    onChange={(e) => setProvider(e.target.value as 'VIDEOCIPHER' | 'R2_HLS')}
+                    onChange={(e) => setProvider(e.target.value as 'VIMEO' | 'R2_HLS' | 'VIDEOCIPHER')}
                     className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
                   >
-                    <option value="VIDEOCIPHER">VdoCipher (DRM · 5 GB Free)</option>
+                    <option value="VIMEO">Vimeo Link (Paste URL)</option>
                     <option value="R2_HLS">Cloudflare R2 + FFmpeg</option>
+                    <option value="VIDEOCIPHER">VdoCipher (DRM · 5 GB Free)</option>
                   </select>
                 </div>
                 <div>
@@ -285,22 +330,45 @@ export default function AdminVideosPage() {
                     )}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">MP4 File</label>
-                  <input
-                    type="file"
-                    accept="video/mp4,.mp4"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                    className="w-full text-xs text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-700 file:font-semibold"
-                  />
-                </div>
-                <div className="md:col-span-4">
+                {provider === 'VIMEO' ? (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Vimeo URL or Video ID *</label>
+                    <input
+                      type="text"
+                      value={vimeoUrl}
+                      onChange={(e) => setVimeoUrl(e.target.value)}
+                      placeholder="https://vimeo.com/123456789"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">MP4 File</label>
+                    <input
+                      type="file"
+                      accept="video/mp4,.mp4"
+                      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                      className="w-full text-xs text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-700 file:font-semibold"
+                    />
+                  </div>
+                )}
+                <div className="md:col-span-4 flex items-center gap-3">
+                  {provider === 'VIMEO' && (
+                    <input
+                      type="number"
+                      min={1}
+                      value={vimeoMinutes}
+                      onChange={(e) => setVimeoMinutes(e.target.value)}
+                      placeholder="Duration (min, optional)"
+                      className="w-48 px-3 py-2.5 rounded-md border border-gray-200 text-sm bg-white"
+                    />
+                  )}
                   <button
                     type="submit"
-                    disabled={uploading || !selectedLessonId || !file}
+                    disabled={uploading || !selectedLessonId || (provider === 'VIMEO' ? !vimeoUrl.trim() : !file)}
                     className="inline-flex items-center gap-2 bg-zinc-950 text-white font-medium px-5 py-2.5 rounded-md hover:bg-zinc-800 disabled:opacity-50 text-sm"
                   >
-                    {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</> : 'Upload Video'}
+                    {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : provider === 'VIMEO' ? 'Save Vimeo Link' : 'Upload Video'}
                   </button>
                 </div>
               </form>

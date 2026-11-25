@@ -56,6 +56,7 @@ async function authorizeLessonPlayback(userId: string, lessonId: string) {
   }
 
   const hasAsset =
+    (lesson.videoAsset.provider === 'VIMEO' && Boolean(lesson.videoAsset.originalKey)) ||
     (lesson.videoAsset.provider === 'VIDEOCIPHER' && Boolean(lesson.videoAsset.vdoCipherVideoId)) ||
     Boolean(lesson.videoAsset.hlsManifestKey);
 
@@ -113,6 +114,22 @@ router.post('/lessons/:lessonId/session', requireAuth, async (req, res) => {
 
   const watermarkStudentId = user.studentProfile?.studentId ?? 'ADMIN-PREVIEW';
   const watermarkText = `${watermarkStudentId} · ${user.name}`;
+
+  if (lesson.videoAsset!.provider === 'VIMEO' && lesson.videoAsset!.originalKey) {
+    return res.json({
+      success: true,
+      data: {
+        provider: 'VIMEO',
+        playbackSessionId,
+        vimeoEmbedUrl: lesson.videoAsset!.originalKey,
+        durationSeconds: lesson.videoAsset!.durationSeconds ?? lesson.durationSeconds ?? 0,
+        watermark: {
+          studentId: watermarkStudentId,
+          studentName: user.name,
+        },
+      },
+    });
+  }
 
   if (lesson.videoAsset!.provider === 'VIDEOCIPHER' && lesson.videoAsset!.vdoCipherVideoId) {
     const { otp, playbackInfo } = await generateVdoCipherOtp(

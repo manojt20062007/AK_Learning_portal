@@ -20,6 +20,7 @@ interface LessonItem {
   id: string;
   title: string;
   description?: string | null;
+  thumbnailUrl?: string | null;
   order: number;
   durationSeconds?: number | null;
   videoAsset?: { status: string; durationSeconds?: number | null } | null;
@@ -218,13 +219,23 @@ export default function CourseLearnPage({ params }: { params: Promise<{ courseId
                   }}
                 />
               ) : (
-                <div className="w-full aspect-video bg-gray-900 rounded-2xl flex flex-col items-center justify-center text-gray-300 p-6 text-center">
-                  <Video className="w-10 h-10 text-gray-500 mb-2" />
-                  <p className="text-sm font-medium">
-                    {activeLesson.videoAsset?.status === 'PROCESSING'
-                      ? 'Video is currently processing. Please check back shortly.'
-                      : 'No video uploaded for this lesson yet.'}
-                  </p>
+                <div className="relative w-full aspect-video bg-gray-900 rounded-2xl overflow-hidden flex flex-col items-center justify-center text-gray-300 p-6 text-center">
+                  {activeLesson.thumbnailUrl && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={activeLesson.thumbnailUrl}
+                      alt={activeLesson.title}
+                      className="absolute inset-0 w-full h-full object-cover opacity-30"
+                    />
+                  )}
+                  <div className="relative z-10 flex flex-col items-center">
+                    <Video className="w-10 h-10 text-gray-400 mb-2" />
+                    <p className="text-sm font-medium">
+                      {activeLesson.videoAsset?.status === 'PROCESSING'
+                        ? 'Video is currently processing. Please check back shortly.'
+                        : 'No video uploaded for this lesson yet.'}
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -350,6 +361,14 @@ export default function CourseLearnPage({ params }: { params: Promise<{ courseId
                           <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                         ) : (
                           <Circle className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
+                        )}
+                        {lesson.thumbnailUrl && (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={lesson.thumbnailUrl}
+                            alt={lesson.title}
+                            className="w-12 h-8 rounded object-cover flex-shrink-0 bg-gray-100 border border-gray-200"
+                          />
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="truncate">{lesson.title}</div>

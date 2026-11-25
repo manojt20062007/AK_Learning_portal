@@ -393,10 +393,11 @@ router.post('/:id/sections/:sectionId/lessons', async (req, res) => {
   });
   if (!section) throw new NotFoundError('Section');
 
-  const { title, description, isFreePreview } = req.body as {
+  const { title, description, isFreePreview, thumbnailUrl } = req.body as {
     title: string;
     description?: string;
     isFreePreview?: boolean;
+    thumbnailUrl?: string | null;
   };
 
   if (!title || title.trim().length < 2) {
@@ -413,6 +414,7 @@ router.post('/:id/sections/:sectionId/lessons', async (req, res) => {
       sectionId: req.params.sectionId,
       title: title.trim(),
       description: description?.trim() ?? null,
+      thumbnailUrl: thumbnailUrl?.trim() || null,
       isFreePreview: isFreePreview ?? false,
       order: (lastLesson?.order ?? -1) + 1,
     },
@@ -436,11 +438,12 @@ router.patch('/:id/sections/:sectionId/lessons/:lessonId', async (req, res) => {
   });
   if (!lesson) throw new NotFoundError('Lesson');
 
-  const { title, description, isFreePreview, order } = req.body as {
+  const { title, description, isFreePreview, order, thumbnailUrl } = req.body as {
     title?: string;
     description?: string;
     isFreePreview?: boolean;
     order?: number;
+    thumbnailUrl?: string | null;
   };
 
   const updated = await prisma.lesson.update({
@@ -448,6 +451,7 @@ router.patch('/:id/sections/:sectionId/lessons/:lessonId', async (req, res) => {
     data: {
       ...(title && { title: title.trim() }),
       ...(description !== undefined && { description }),
+      ...(thumbnailUrl !== undefined && { thumbnailUrl: thumbnailUrl?.trim() || null }),
       ...(isFreePreview !== undefined && { isFreePreview }),
       ...(order !== undefined && { order }),
     },

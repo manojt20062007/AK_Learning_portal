@@ -228,6 +228,7 @@ router.get('/courses/:courseId/learn', async (req, res) => {
       title: true,
       slug: true,
       shortDescription: true,
+      thumbnailUrl: true,
       sections: {
         orderBy: { order: 'asc' },
         select: {
@@ -241,6 +242,7 @@ router.get('/courses/:courseId/learn', async (req, res) => {
               id: true,
               title: true,
               description: true,
+              thumbnailUrl: true,
               order: true,
               durationSeconds: true,
               isFreePreview: true,

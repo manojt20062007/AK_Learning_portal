@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import BrandLogo from '@/components/layout/BrandLogo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -49,11 +50,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#FAFAFA] flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-zinc-950 text-white flex items-center justify-center font-bold text-xs">
-              AK
-            </div>
-            <span className="text-base font-semibold text-zinc-950">AK Learning</span>
+          <Link href="/" className="inline-flex items-center">
+            <BrandLogo size="md" />
           </Link>
         </div>
 

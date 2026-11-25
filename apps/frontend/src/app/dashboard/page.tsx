@@ -7,6 +7,8 @@ import {
   BookOpen, Award, Bell, CreditCard, Settings, LogOut,
   Loader2, CheckCircle, Play, AlertCircle, Radio
 } from 'lucide-react';
+import BrandLogo from '@/components/layout/BrandLogo';
+import BrandLoader from '@/components/layout/BrandLoader';
 
 interface Enrollment {
   id: string;
@@ -172,22 +174,15 @@ export default function StudentDashboardPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
-        <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
-      </div>
-    );
+    return <BrandLoader label="Loading your dashboard..." />;
   }
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-zinc-950">
       <header className="bg-white border-b border-zinc-200 sticky top-0 z-30">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md bg-zinc-950 text-white flex items-center justify-center font-bold text-xs">
-              AK
-            </div>
-            <span className="font-semibold text-sm text-zinc-950">AK Learning</span>
+          <Link href="/" className="flex items-center">
+            <BrandLogo size="sm" />
           </Link>
 
           <div className="flex items-center gap-3">

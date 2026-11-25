@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import BrandLogo from './BrandLogo';
 import {
   LayoutDashboard,
   BookOpen,
@@ -45,14 +46,8 @@ export default function AdminShell({ title, actions, children }: AdminShellProps
       {/* Sidebar */}
       <aside className="hidden md:flex w-60 bg-white border-r border-zinc-200 flex-col flex-shrink-0 sticky top-0 h-screen">
         <div className="h-14 flex items-center px-5 border-b border-zinc-200">
-          <Link href="/admin" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md bg-zinc-950 text-white flex items-center justify-center font-bold text-xs">
-              AK
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-zinc-950 leading-none">AK Learning</div>
-              <div className="text-[11px] text-zinc-500 mt-0.5">Admin Console</div>
-            </div>
+          <Link href="/admin" className="flex items-center">
+            <BrandLogo size="sm" subtitle="Admin Console" />
           </Link>
         </div>
 

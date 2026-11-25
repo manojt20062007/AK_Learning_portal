@@ -10,6 +10,7 @@ import {
   CreditCard,
   LogOut,
   ExternalLink,
+  Radio,
 } from 'lucide-react';
 
 interface AdminShellProps {
@@ -21,6 +22,7 @@ interface AdminShellProps {
 const navItems = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
   { href: '/admin/courses', label: 'Courses', icon: BookOpen, exact: false },
+  { href: '/admin/live', label: 'Live Classes', icon: Radio, exact: false },
   { href: '/admin/videos', label: 'Videos & R2', icon: Video, exact: false },
   { href: '/admin/payments', label: 'Payments', icon: CreditCard, exact: false },
   { href: '/admin/students', label: 'Students', icon: Users, exact: false },

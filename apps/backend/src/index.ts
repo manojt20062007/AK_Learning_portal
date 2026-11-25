@@ -21,6 +21,7 @@ import publicRouter from './routes/public';
 import paymentRouter from './routes/payment';
 import studentRouter from './routes/student';
 import videoRouter from './routes/video';
+import liveRouter from './routes/live';
 
 const app = express();
 app.disable('x-powered-by');
@@ -118,6 +119,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/student', studentRouter);
 app.use('/api/video', videoRouter);
+app.use('/api/live', liveRouter);
 app.use('/api/public', publicRouter);
 app.use('/api/public', paymentRouter);
 

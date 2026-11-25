@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   BookOpen, Award, Bell, CreditCard, Settings, LogOut,
-  Loader2, CheckCircle, Play, AlertCircle
+  Loader2, CheckCircle, Play, AlertCircle, Radio
 } from 'lucide-react';
 
 interface Enrollment {
@@ -60,6 +60,15 @@ interface NotificationRecord {
   createdAt: string;
 }
 
+interface LiveSessionItem {
+  id: string;
+  title: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: 'SCHEDULED' | 'LIVE' | 'ENDED';
+  course: { id: string; title: string };
+}
+
 type TabKey = 'courses' | 'payments' | 'notifications' | 'settings';
 
 export default function StudentDashboardPage() {
@@ -68,6 +77,7 @@ export default function StudentDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
+  const [liveSessions, setLiveSessions] = useState<LiveSessionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -89,6 +99,11 @@ export default function StudentDashboardPage() {
       const json = await res.json();
       if (json.success) setData(json.data);
       else setError(json.message || 'Failed to load dashboard');
+
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/live/my-sessions`, { credentials: 'include' })
+        .then((r) => r.json())
+        .then((lj) => { if (lj.success) setLiveSessions(lj.data); })
+        .catch(() => {});
     } catch {
       setError('Could not connect to server');
     } finally {
@@ -263,7 +278,42 @@ export default function StudentDashboardPage() {
 
             {/* My Courses */}
             {tab === 'courses' && (
-              data.enrollments.length === 0 ? (
+              <div className="space-y-6">
+                {liveSessions.length > 0 && (
+                  <div className="bg-white border border-zinc-200 rounded-xl p-5">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-zinc-950 mb-3">
+                      <Radio className="w-4 h-4 text-emerald-600" />
+                      Upcoming &amp; Live Classes
+                    </div>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {liveSessions.map((ls) => (
+                        <div key={ls.id} className="border border-zinc-200 rounded-lg p-3.5 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-xs font-medium text-blue-700 truncate">{ls.course.title}</div>
+                            <div className="text-sm font-semibold text-zinc-950 truncate">{ls.title}</div>
+                            <div className="text-xs text-zinc-500 mt-0.5 tabular-nums">
+                              {new Date(ls.scheduledAt).toLocaleString('en-IN')} · {ls.durationMinutes}m
+                            </div>
+                          </div>
+                          {ls.status !== 'ENDED' && (
+                            <Link
+                              href={`/live/${ls.id}`}
+                              className={`flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-md ${
+                                ls.status === 'LIVE'
+                                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                  : 'bg-zinc-950 text-white hover:bg-zinc-800'
+                              }`}
+                            >
+                              {ls.status === 'LIVE' ? 'Join Live' : 'Open Room'}
+                            </Link>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {data.enrollments.length === 0 ? (
                 <div className="bg-white border border-zinc-200 rounded-xl p-12 text-center">
                   <BookOpen className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
                   <h2 className="text-base font-semibold text-zinc-900 mb-1">No enrolled courses yet</h2>
@@ -317,7 +367,8 @@ export default function StudentDashboardPage() {
                     </div>
                   ))}
                 </div>
-              )
+                )}
+              </div>
             )}
 
             {/* Payment History */}

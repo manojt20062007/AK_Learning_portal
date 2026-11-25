@@ -10,6 +10,7 @@ import auditRouter from './admin/audit';
 import paymentsRouter from './admin/payments';
 import videosRouter from './admin/videos';
 import quizzesRouter from './admin/quizzes';
+import liveRouter from './admin/live';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use('/audit', auditRouter);
 router.use('/payments', paymentsRouter);
 router.use('/videos', videosRouter);
 router.use('/quizzes', quizzesRouter);
+router.use('/live', liveRouter);
 
 // GET /api/admin/dashboard - Analytics overview
 router.get('/dashboard', async (req, res) => {

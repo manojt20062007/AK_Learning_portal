@@ -39,14 +39,11 @@
     "pg": "^8.13.1",
     "uuid": "^11.0.3",
     "winston": "^3.17.0",
-    "zod": "^3.24.1"
-  },
-  "devDependencies": {
+    "zod": "^3.23.8",
     "@types/compression": "^1.7.5",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.17",
-    "@types/csurf": "^1.11.5",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.1",
     "@types/morgan": "^1.9.9",
@@ -55,13 +52,16 @@
     "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.11.10",
     "@types/uuid": "^10.0.0",
+    "prisma": "^6.1.0",
+    "typescript": "^5.7.2"
+  },
+  "devDependencies": {
+    "@types/csurf": "^1.11.5",
     "@typescript-eslint/eslint-plugin": "^8.17.0",
     "@typescript-eslint/parser": "^8.17.0",
     "eslint": "^9.16.0",
-    "prisma": "^6.1.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "tsconfig-paths": "^3.15.0",
-    "typescript": "^5.7.2"
+    "tsconfig-paths": "^3.15.0"
   }
 }
